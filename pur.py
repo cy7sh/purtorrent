@@ -18,7 +18,6 @@ info_binary = bencode(torrent['info'])
 info_hash = hashlib.sha1(info_binary).digest()
 peer_id = '-qB4170-t-FvepUJaWBf'.encode('utf-8')
 
-
 def tracker_connect_udp():
     connection_id = pack('>Q', 0x41727101980)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -33,24 +32,25 @@ def tracker_connect_udp():
             ip, port = socket.gethostbyname(parsed.hostname), parsed.port
             transaction_id = pack('>I', random.getrandbits(32))
             message = connection_id + action + transaction_id
-            response = send_message_udp(sock, (ip, port), message, action, transaction_id)
-            if response != 'timeout':
-                tracker_announce_udp(response[8:16], transaction_id, (ip, port), sock)
+            response = send_message_udp(sock, (ip, port), message, action, transaction_id, len(message))
+            tracker_announce_udp(response[8:16], transaction_id, (ip, port), sock)
 
 
 def tracker_announce_udp(connection_id, transaction_id, connection, sock):
     action = pack('>I', 1)
     ip_address = pack('>I', 0)
     num_want = pack('>i', -1)
-    port = pack('>h', 8000)
-    downloaded = pack('>I', 0)
-    event = pack('>I', 0)
+    port = pack('>H', 8000)
+    downloaded = pack('>Q', 0)
+    left = pack('>Q', 0)
+    uploaded = pack('>Q', 0)
+    event = pack('>I', 3)
     key = pack('>I', 0)
-    message = connection_id + action + transaction_id + info_hash + peer_id + downloaded + event + ip_address + key + num_want + port
-    send_message_udp(sock, connection, message, action, transaction_id)
+    message = connection_id + action + transaction_id + info_hash + peer_id + downloaded + left + uploaded + event + ip_address + key + num_want + port
+    send_message_udp(sock, connection, message, action, transaction_id, 20)
 
 
-def send_message_udp(sock, connection, message, action, transaction_id):
+def send_message_udp(sock, connection, message, action, transaction_id, full_size):
     sock.sendto(message, connection)
     response = b''
     try:
@@ -59,7 +59,7 @@ def send_message_udp(sock, connection, message, action, transaction_id):
             response += buff
     except socket.timeout as e:
         pass
-    if len(response) < len(message):
+    if len(response) < full_size:
         print('not full message')
         return
     if action != response[:4] or transaction_id != response[4:8]:

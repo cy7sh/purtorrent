@@ -47,8 +47,18 @@ def tracker_announce_udp(connection_id, transaction_id, connection, sock):
     event = pack('>I', 3)
     key = pack('>I', 0)
     message = connection_id + action + transaction_id + info_hash + peer_id + downloaded + left + uploaded + event + ip_address + key + num_want + port
-    send_message_udp(sock, connection, message, action, transaction_id, 20)
-
+    response = send_message_udp(sock, connection, message, action, transaction_id, 20)
+    parsed_response = {
+        'action': unpack('>I', response[:4])[0],
+        'transaction_id': unpack('>I', response[4:8])[0],
+        'interval': unpack('>I', response[8:12])[0],
+        'leechers': unpack('>I', response[12:16]),
+        'seeders': unpack('>I', response[16:20])
+#        'ip_address': unpack('>I', response[16:20]),
+#        'port': unpack('>H', response[20:24]),
+    }
+    print(parsed_response)
+ 
 
 def send_message_udp(sock, connection, message, action, transaction_id, full_size):
     sock.sendto(message, connection)
@@ -57,7 +67,7 @@ def send_message_udp(sock, connection, message, action, transaction_id, full_siz
         while True:
             buff = sock.recv(4096)
             response += buff
-    except socket.timeout as e:
+    except socket.timeout:
         pass
     if len(response) < full_size:
         print('not full message')
@@ -71,7 +81,7 @@ def send_message_udp(sock, connection, message, action, transaction_id, full_siz
         'transaction_id': unpack('>I', response[4:8])[0],
         'connection_id': unpack('>Q', response[8:16])[0]
     }
-    print(parsed_response)
+#    print(parsed_response)
     return response
 
 

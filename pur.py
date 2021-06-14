@@ -76,15 +76,15 @@ def tracker_announce_udp(connection_id, connection, sock):
             'seeders': unpack('>I', response[16:20])[0]
         }
 #        print(parsed_response)
-    if len(response) > 20:
-        extra_bytes = len(response) - 20
-        address_length = extra_bytes // 6
-        addresses = []
-        for offset in range(0, address_length):
-            ip = format(ipaddress.IPv4Address(response[20 + (6 * offset) : 24 + (6 * offset)]))
-            port = unpack('>H', response[24 + (6 * offset) : 24 + (6 * offset) + 2])[0]
-            addresses.append((ip, port))
-        return addresses
+        if len(response) > 20:
+            extra_bytes = len(response) - 20
+            address_length = extra_bytes // 6
+            addresses = []
+            for offset in range(0, address_length):
+                ip = format(ipaddress.IPv4Address(response[20 + (6 * offset) : 24 + (6 * offset)]))
+                port = unpack('>H', response[24 + (6 * offset) : 24 + (6 * offset) + 2])[0]
+                addresses.append((ip, port))
+            return addresses
      
 
 def send_message_udp(sock, connection, message, action, transaction_id, full_size):
@@ -119,26 +119,38 @@ def peers_connect(peers):
         try:
             peer_socket.connect(peer)
         except OSError as err:
-            print(err)
+            print('{}'.format(err))
             continue
         # do handshake
         pstrlen = 19
         pstr = b'BitTorrent protocol'
         reserved = b'\x00' * 8
         handshake = pack(">B19s8s20s20s", pstrlen, pstr, reserved, info_hash, peer_id)
-        print('handshake size {}'.format(len(handshake)))
+        print('handshaking')
         peer_socket.send(handshake)
         response = b''
         try:
             while True:
                 buff = peer_socket.recv(4096)
-                if len(buff) == 0:
+                if not buff:
                     break
                 response += buff
         except socket.timeout:
             pass
+        except OSError as err:
+            print(err)
+            pass
         peer_socket.close()
         print('response size {}'.format(len(response)))
+        if response and len(response) >= 68:
+            parsed_response = {
+                'pstrlen': unpack('>B', response[:1]),
+                'pstr': unpack('19s', response[1:20]),
+                'reserved': unpack('8s', response[20:28]),
+                'info_hash': unpack('20s', response[28:48])[0].hex(),
+                'peer_id': unpack('20s', response[48:68])
+            }
+            print(parsed_response)
 
 
 peers = tracker_connect_udp()

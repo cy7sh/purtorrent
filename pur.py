@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from struct import pack, unpack
 import random
 import ipaddress
+from bitstring import BitArray
 
 torrent_file = 'ref.torrent'
 
@@ -22,8 +23,9 @@ total_length = 0
 for value in torrent['info']['files']:
    total_length += value['length']
 
-#'info': {'files': [{'length': 31, 'path': ['RARBG.txt']}, {'length': 138680313, 'path': ['Sample', 'Sample-TBUBSM10.mkv']}, {'length': 21853755533, 'path': ['The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ.mkv']}]
+total_pieces = len(torrent['info']['pieces'])/20
 
+#{'announce': 'http://tracker.trackerfix.com:80/announce', 'announce-list': [['http://tracker.trackerfix.com:80/announce'], ['udp://9.rarbg.me:2780/announce'], ['udp://9.rarbg.to:2940/announce'], ['udp://tracker.slowcheetah.org:14780/announce'], ['udp://tracker.tallpenguin.org:15800/announce']], 'comment': 'Torrent downloaded from https://rarbg.to', 'created by': 'mktorrent 1.0', 'creation date': 1623571896, 'info': {'files': [{'length': 31, 'path': ['RARBG.txt']}, {'length': 138680313, 'path': ['Sample', 'Sample-TBUBSM10.mkv']}, {'length': 21853755533, 'path': ['The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ.mkv']}], 'name': 'The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ', 'piece length': 8388608, 'pieces': b'\xb6\xf63\x
 def tracker_connect_udp():
     connection_id = pack('>Q', 0x41727101980)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -42,11 +44,11 @@ def tracker_connect_udp():
         print('connecting tracker {}'.format(tracker))
         response = send_message_udp(sock, (ip, port), message, action, transaction_id, len(message))
         if response:
-            parsed_response = {
-                'action': unpack('>I', response[:4])[0],
-                'transaction_id': unpack('>I', response[4:8])[0],
-                'connection_id': unpack('>Q', response[8:16])[0]
-            }
+#            parsed_response = {
+#                'action': unpack('>I', response[:4])[0],
+#                'transaction_id': unpack('>I', response[4:8])[0],
+#                'connection_id': unpack('>Q', response[8:16])[0]
+#            }
             print('announcing tracker {}'.format(tracker))
             peers += tracker_announce_udp(response[8:16], (ip, port), sock)
     peers = list(set(peers))
@@ -107,12 +109,6 @@ def send_message_udp(sock, connection, message, action, transaction_id, full_siz
 
 def peers_connect(peers):
     for peer in peers:
-        state = {
-            'am_choking': True,
-            'am_interested': False,
-            'peer_choking': True,
-            'peer_interested': False
-        }
         print('connecting to peer {}'.format(peer[0]))
         peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         peer_socket.settimeout(4)
@@ -140,17 +136,39 @@ def peers_connect(peers):
         except OSError as err:
             print(err)
             pass
-        peer_socket.close()
         print('response size {}'.format(len(response)))
-        if response and len(response) >= 68:
-            parsed_response = {
-                'pstrlen': unpack('>B', response[:1]),
-                'pstr': unpack('19s', response[1:20]),
-                'reserved': unpack('8s', response[20:28]),
-                'info_hash': unpack('20s', response[28:48])[0].hex(),
-                'peer_id': unpack('20s', response[48:68])
-            }
-            print(parsed_response)
+        if response and len(response) == 68:
+            peer_manager(peer_socket)
+        if response and len(response) > 68:
+#            parsed_response = {
+#                'pstrlen': unpack('>B', response[:1]),
+#                'pstr': unpack('19s', response[1:20]),
+#                'reserved': unpack('8s', response[20:28]),
+#                'info_hash': unpack('20s', response[28:48])[0].hex(),
+#                'peer_id': unpack('20s', response[48:68])
+#            }
+            peer_manager(peer_socket, response[68:])
+        peer_socket.close()
+
+
+def peer_manager(sock, message=None):
+    state = {
+        'am_choking': True,
+        'am_interested': False,
+        'peer_choking': True,
+        'peer_interested': False
+    }
+    if message:
+        parsed_message = {
+            'length': unpack('>I', message[:4])[0],
+            'message_id': message[4]
+        }
+        print(parsed_message)
+        # process bitfield
+        if parsed_message['message_id'] == 5:
+            len_bitfield = parsed_message['length'] - 1
+            bits = BitArray(message[5:len_bitfield+1])
+#            print(len(bits.bin)) # 2592
 
 
 peers = tracker_connect_udp()

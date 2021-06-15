@@ -22,10 +22,10 @@ peer_id = b'-qB4170-t-FvepUJaWBf'
 total_length = 0
 for value in torrent['info']['files']:
    total_length += value['length']
+peers_pieces = []
 
 total_pieces = len(torrent['info']['pieces'])//20 # 2622
 
-#{'announce': 'http://tracker.trackerfix.com:80/announce', 'announce-list': [['http://tracker.trackerfix.com:80/announce'], ['udp://9.rarbg.me:2780/announce'], ['udp://9.rarbg.to:2940/announce'], ['udp://tracker.slowcheetah.org:14780/announce'], ['udp://tracker.tallpenguin.org:15800/announce']], 'comment': 'Torrent downloaded from https://rarbg.to', 'created by': 'mktorrent 1.0', 'creation date': 1623571896, 'info': {'files': [{'length': 31, 'path': ['RARBG.txt']}, {'length': 138680313, 'path': ['Sample', 'Sample-TBUBSM10.mkv']}, {'length': 21853755533, 'path': ['The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ.mkv']}], 'name': 'The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ', 'piece length': 8388608, 'pieces': b'\xb6\xf63\x
 def tracker_connect_udp():
     connection_id = pack('>Q', 0x41727101980)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -128,7 +128,7 @@ def peers_connect(peers):
         except OSError as err:
             print(err)
             pass
-        print('response size {}'.format(len(response)))
+#        print('response size {}'.format(len(response)))
         if response and len(response) == 68:
             peer_manager(peer_socket)
         if response and len(response) > 68:
@@ -140,7 +140,6 @@ def peers_connect(peers):
 #                'peer_id': unpack('20s', response[48:68])
 #            }
             peer_manager(peer_socket, response[68:])
-        peer_socket.close()
 
 
 def peer_manager(sock, message=None):
@@ -155,11 +154,12 @@ def peer_manager(sock, message=None):
             'length': unpack('>I', message[:4])[0],
             'message_id': message[4]
         }
-        print(parsed_message)
         # process bitfield
         if parsed_message['message_id'] == 5:
             len_bitfield = parsed_message['length'] - 1
             bits = BitArray(message[5:len_bitfield+5])
+            have_pieces = bits.count('1')
+            peers_pieces.append((sock, have_pieces))
 
 
 peers = tracker_connect_udp()

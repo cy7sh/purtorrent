@@ -159,7 +159,7 @@ def peer_manager(sock, message=None):
             len_bitfield = parsed_message['length'] - 1
             bits = BitArray(message[5:len_bitfield+5])
             have_pieces = bits.count('1')
-            peers_pieces.append((sock, have_pieces))
+            peers_pieces.append((sock, have_pieces, bits))
 
 
 peers = tracker_connect_udp()

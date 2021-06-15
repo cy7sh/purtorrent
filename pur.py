@@ -162,6 +162,13 @@ def peer_manager(sock, message=None):
             peers_pieces.append((sock, have_pieces, bits))
 
 
+def peer_having_piece(piece_index):
+    for peer in peers_pieces:
+        if int(peer[2][piece_index]) == 1:
+            return peer
+
+
+
 peers = tracker_connect_udp()
 peers_connect(peers)
 peers_pieces = sorted(peers_pieces, key=lambda entry: entry[1], reverse=True)

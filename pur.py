@@ -131,6 +131,7 @@ def peers_connect(peers):
 #        print('response size {}'.format(len(response)))
         if response and len(response) == 68:
             peer_manager(peer_socket)
+            peers_pieces.append((peer_socket))
         if response and len(response) > 68:
 #            parsed_response = {
 #                'pstrlen': unpack('>B', response[:1]),
@@ -167,8 +168,10 @@ def peer_having_piece(piece_index):
         if int(peer[2][piece_index]) == 1:
             return peer
 
+def piece_mangaer():
+    having_pieces = [0] * total_pieces
 
 
 peers = tracker_connect_udp()
 peers_connect(peers)
-peers_pieces = sorted(peers_pieces, key=lambda entry: entry[1], reverse=True)
+peers_pieces = sorted(peers_pieces, key=lambda entry: entry[1] if entry[1] else 0, reverse=True)

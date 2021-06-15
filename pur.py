@@ -160,18 +160,45 @@ def peer_manager(sock, message=None):
             len_bitfield = parsed_message['length'] - 1
             bits = BitArray(message[5:len_bitfield+5])
             have_pieces = bits.count('1')
-            peers_pieces.append((sock, have_pieces, bits))
+            peers_pieces.append([sock, have_pieces, bits])
+
+
+def peer_send_interested():
+    for peer in peers_pieces:
+        sock = peer[0]
+        message = pack('>IB', 1, 2)
+        sock.send(message)
+        response = b''
+        try:
+            while True:
+                buff = sock.recv(4096)
+                if not buff:
+                    break
+                response += buff
+        except socket.timeout:
+            pass
+        except OSError as err:
+            print(err)
+            pass
+        if response and len(response) >= 5:
+            parsed_response = {
+                'length': unpack('>I', response[:4])[0],
+                'message_id': response[4]
+            }
+            if parsed_response['message_id'] == 1:
+                peer.append(True)
 
 
 def peer_having_piece(piece_index):
     for peer in peers_pieces:
-        if int(peer[2][piece_index]) == 1:
+        if int(peer[2][piece_index]) == 1 and len(peer) >= 4 and peer[3]:
             return peer
 
 def piece_mangaer():
     having_pieces = [0] * total_pieces
-
+    
 
 peers = tracker_connect_udp()
 peers_connect(peers)
 peers_pieces = sorted(peers_pieces, key=lambda entry: entry[1] if entry[1] else 0, reverse=True)
+peer_send_interested()

@@ -23,7 +23,8 @@ total_length = 0
 for value in torrent['info']['files']:
    total_length += value['length']
 
-total_pieces = len(torrent['info']['pieces'])/20
+total_pieces = len(torrent['info']['pieces'])//20 # 2622
+print(total_pieces)
 
 #{'announce': 'http://tracker.trackerfix.com:80/announce', 'announce-list': [['http://tracker.trackerfix.com:80/announce'], ['udp://9.rarbg.me:2780/announce'], ['udp://9.rarbg.to:2940/announce'], ['udp://tracker.slowcheetah.org:14780/announce'], ['udp://tracker.tallpenguin.org:15800/announce']], 'comment': 'Torrent downloaded from https://rarbg.to', 'created by': 'mktorrent 1.0', 'creation date': 1623571896, 'info': {'files': [{'length': 31, 'path': ['RARBG.txt']}, {'length': 138680313, 'path': ['Sample', 'Sample-TBUBSM10.mkv']}, {'length': 21853755533, 'path': ['The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ.mkv']}], 'name': 'The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ', 'piece length': 8388608, 'pieces': b'\xb6\xf63\x
 def tracker_connect_udp():
@@ -69,24 +70,16 @@ def tracker_announce_udp(connection_id, connection, sock):
     transaction_id = pack('>I', random.getrandbits(32))
     message = connection_id + action + transaction_id + info_hash + peer_id + downloaded + left + uploaded + event + ip_address + key + num_want + port
     response = send_message_udp(sock, connection, message, action, transaction_id, 20)
-    if response:
-        parsed_response = {
-            'action': unpack('>I', response[:4])[0],
-            'transaction_id': unpack('>I', response[4:8])[0],
-            'interval': unpack('>I', response[8:12])[0],
-            'leechers': unpack('>I', response[12:16])[0],
-            'seeders': unpack('>I', response[16:20])[0]
-        }
-#        print(parsed_response)
-        if len(response) > 20:
-            extra_bytes = len(response) - 20
-            address_length = extra_bytes // 6
-            addresses = []
-            for offset in range(0, address_length):
-                ip = format(ipaddress.IPv4Address(response[20 + (6 * offset) : 24 + (6 * offset)]))
-                port = unpack('>H', response[24 + (6 * offset) : 24 + (6 * offset) + 2])[0]
-                addresses.append((ip, port))
-            return addresses
+    if response and len(response) > 20:
+        extra_bytes = len(response) - 20
+        address_length = extra_bytes // 6
+        addresses = []
+        for offset in range(0, address_length):
+            ip = format(ipaddress.IPv4Address(response[20 + (6 * offset) : 24 + (6 * offset)]))
+            port = unpack('>H', response[24 + (6 * offset) : 24 + (6 * offset) + 2])[0]
+            addresses.append((ip, port))
+        return addresses
+    return []
      
 
 def send_message_udp(sock, connection, message, action, transaction_id, full_size):
@@ -168,7 +161,7 @@ def peer_manager(sock, message=None):
         if parsed_message['message_id'] == 5:
             len_bitfield = parsed_message['length'] - 1
             bits = BitArray(message[5:len_bitfield+1])
-#            print(len(bits.bin)) # 2592
+            print(len(bits.bin)) # 2592
 
 
 peers = tracker_connect_udp()

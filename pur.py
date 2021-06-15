@@ -24,7 +24,6 @@ for value in torrent['info']['files']:
    total_length += value['length']
 
 total_pieces = len(torrent['info']['pieces'])//20 # 2622
-print(total_pieces)
 
 #{'announce': 'http://tracker.trackerfix.com:80/announce', 'announce-list': [['http://tracker.trackerfix.com:80/announce'], ['udp://9.rarbg.me:2780/announce'], ['udp://9.rarbg.to:2940/announce'], ['udp://tracker.slowcheetah.org:14780/announce'], ['udp://tracker.tallpenguin.org:15800/announce']], 'comment': 'Torrent downloaded from https://rarbg.to', 'created by': 'mktorrent 1.0', 'creation date': 1623571896, 'info': {'files': [{'length': 31, 'path': ['RARBG.txt']}, {'length': 138680313, 'path': ['Sample', 'Sample-TBUBSM10.mkv']}, {'length': 21853755533, 'path': ['The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ.mkv']}], 'name': 'The.Big.Ugly.2020.2160p.BluRay.x265.10bit.SDR.DTS-HD.MA.5.1-SWTYBLZ', 'piece length': 8388608, 'pieces': b'\xb6\xf63\x
 def tracker_connect_udp():
@@ -160,8 +159,7 @@ def peer_manager(sock, message=None):
         # process bitfield
         if parsed_message['message_id'] == 5:
             len_bitfield = parsed_message['length'] - 1
-            bits = BitArray(message[5:len_bitfield+1])
-            print(len(bits.bin)) # 2592
+            bits = BitArray(message[5:len_bitfield+5])
 
 
 peers = tracker_connect_udp()

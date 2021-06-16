@@ -160,14 +160,18 @@ def peer_manager(sock, message=None):
             len_bitfield = parsed_message['length'] - 1
             bits = BitArray(message[5:len_bitfield+5])
             have_pieces = bits.count('1')
-            peers_pieces.append([sock, have_pieces, bits])
+            peers_pieces.append([sock, sock.getpeername(), have_pieces, bits])
 
 
 def peer_send_interested():
     for peer in peers_pieces:
         sock = peer[0]
         message = pack('>IB', 1, 2)
-        sock.send(message)
+        try:
+            sock.send(message)
+        except OSError as err:
+            print(err)
+            continue
         response = b''
         try:
             while True:
@@ -189,16 +193,52 @@ def peer_send_interested():
                 peer.append(True)
 
 
-def peer_having_piece(piece_index):
+def peer_having_piece(piece_index, match=1):
+    count = 0
     for peer in peers_pieces:
-        if int(peer[2][piece_index]) == 1 and len(peer) >= 4 and peer[3]:
-            return peer
+        if int(peer[3][piece_index]) == 1 and len(peer) >= 5 and peer[4]:
+            count += 1
+            if count == match:
+                return peer
 
-def piece_mangaer():
+def piece_manager():
     having_pieces = [0] * total_pieces
-    
+    for piece in having_pieces:
+        if piece:
+            continue
+        message = pack('>IBII', 13, 6, 0, 16384)
+        match = 1
+        while peer:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(4)
+            peer = peer_having_piece(0, match)
+            if not peer:
+                break
+            match += 1
+            print('sending request to {}'.format(peer[1]))
+            try:
+                sock.connect(peer[1])
+                sock.send(message)
+            except OSError as err:
+                print(err)
+                continue
+            response = b''
+            try:
+                while True:
+                    buff = sock.recv(4096)
+                    if not buff:
+                        break
+                    response += buff
+            except socket.timeout:
+                pass
+            except OSError as err:
+                print(err)
+                pass
+            print('response size: {}'.format(len(response)))
+
 
 peers = tracker_connect_udp()
 peers_connect(peers)
-peers_pieces = sorted(peers_pieces, key=lambda entry: entry[1] if entry[1] else 0, reverse=True)
+peers_pieces = sorted(peers_pieces, key=lambda entry: entry[2] if entry[2] else 0, reverse=True)
 peer_send_interested()
+piece_manager()

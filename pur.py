@@ -22,6 +22,7 @@ peer_id = b'-qB4170-t-FvepUJaWBf'
 total_length = 0
 for value in torrent['info']['files']:
    total_length += value['length']
+piece_length = torrent['info']['piece length'] #8388608
 peers_pieces = []
 
 total_pieces = len(torrent['info']['pieces'])//20 # 2622
@@ -103,7 +104,7 @@ def peers_connect(peers):
     for peer in peers:
         print('connecting to peer {}'.format(peer[0]))
         peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        peer_socket.settimeout(4)
+        peer_socket.settimeout(1)
         try:
             peer_socket.connect(peer)
         except OSError as err:
@@ -204,37 +205,51 @@ def peer_having_piece(piece_index, match=1):
 
 def piece_manager():
     having_pieces = [0] * total_pieces
+    block_size = 16384
     for index, piece in enumerate(having_pieces):
         if piece:
             continue
-        message_interested = pack('>IB', 1, 2)
-        message_request = pack('>IBIII', 13, 6, index, 0, 16384)
         match = 1
+        piece_data = b''
         while True:
-            peer = peer_having_piece(0, match)
+            piece_offset = 0
+            peer = peer_having_piece(index, match)
             if not peer:
                 break
             match += 1
             sock = peer[0]
             print('sending request to {} for piece {}'.format(peer[1], index))
-            try:
-                sock.send(message_request)
-            except OSError as err:
-                print(err)
-                continue
-            response = b''
-            try:
-                while True:
-                    buff = sock.recv(4096)
-                    if not buff:
-                        break
-                    response += buff
-            except socket.timeout:
-                pass
-            except OSError as err:
-                print(err)
-                pass
-            print('response size: {}'.format(len(response)))
+            while piece_offset < piece_length:
+                message_request = pack('>IBIII', 13, 6, index, piece_offset, block_size)
+                try:
+                    sock.send(message_request)
+                except OSError as err:
+                    print(err)
+                    break
+                print('current piece offset: {}'.format(piece_offset))
+                sock.setblocking(True)
+                response = b'' # size: 16397
+                try:
+                    while len(response) < 16397:
+                        buff = sock.recv(4096)
+                       # if not buff:
+                       #     break
+                        response += buff
+                except socket.timeout:
+                    pass
+                except OSError as err:
+                    print(err)
+                    break
+                if len(response) < 16397:
+                    break
+                parsed_response = {
+                    'index': unpack('>I', response[:4])[0],
+                    'id': response[4],
+                    'block': response[5:block_size+5]
+                }
+                piece_data += parsed_response['block']
+                piece_offset += block_size
+            print('piece size: {}'.format(len(piece_data)))
 
 
 peers = tracker_connect_udp()

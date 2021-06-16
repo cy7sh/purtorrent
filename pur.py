@@ -23,6 +23,7 @@ total_length = 0
 for value in torrent['info']['files']:
    total_length += value['length']
 piece_length = torrent['info']['piece length'] #8388608
+pieces_hash = torrent['info']['pieces']
 peers_pieces = []
 
 total_pieces = len(torrent['info']['pieces'])//20 # 2622
@@ -227,8 +228,8 @@ def piece_manager():
                     print(err)
                     break
                 print('current piece offset: {}'.format(piece_offset))
-                sock.setblocking(True)
                 response = b'' # size: 16397
+                sock.settimeout(2)
                 try:
                     while len(response) < 16397:
                         buff = sock.recv(4096)
@@ -250,6 +251,18 @@ def piece_manager():
                 piece_data += parsed_response['block']
                 piece_offset += block_size
             print('piece size: {}'.format(len(piece_data)))
+            piece_hash = hashlib.sha1(piece_data).digest()
+            expected_hash = get_piece_hash(index)
+            if piece_hash == expected_hash:
+                print('hash checks out')
+            else:
+                print('invalid piece')
+                print('expected: {}'.format(expected_hash.hex()))
+                print('got: {}'.format(piece_hash.hex()))
+
+
+def get_piece_hash(piece_index):
+    return pieces_hash[piece_index*20:piece_index*20+20]
 
 
 peers = tracker_connect_udp()

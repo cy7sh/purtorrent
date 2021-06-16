@@ -201,24 +201,28 @@ def peer_having_piece(piece_index, match=1):
             if count == match:
                 return peer
 
+
 def piece_manager():
     having_pieces = [0] * total_pieces
-    for piece in having_pieces:
+    for index, piece in enumerate(having_pieces):
         if piece:
             continue
-        message = pack('>IBII', 13, 6, 0, 16384)
+        message_interested = pack('>IB', 1, 2)
+        message_request = pack('>IBIII', 13, 6, index, 0, 16384)
         match = 1
-        while peer:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(4)
+        while True:
             peer = peer_having_piece(0, match)
             if not peer:
                 break
             match += 1
-            print('sending request to {}'.format(peer[1]))
+            sock = peer[0]
+           # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+           # sock.settimeout(4)
+            print('sending request to {} for piece {}'.format(peer[1], index))
             try:
-                sock.connect(peer[1])
-                sock.send(message)
+               # sock.connect(peer[1])
+               # sock.send(message_interested)
+                sock.send(message_request)
             except OSError as err:
                 print(err)
                 continue

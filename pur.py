@@ -216,12 +216,8 @@ def piece_manager():
                 break
             match += 1
             sock = peer[0]
-           # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-           # sock.settimeout(4)
             print('sending request to {} for piece {}'.format(peer[1], index))
             try:
-               # sock.connect(peer[1])
-               # sock.send(message_interested)
                 sock.send(message_request)
             except OSError as err:
                 print(err)
